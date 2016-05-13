@@ -52,6 +52,7 @@ groups:
       - shipit
       - major
       - minor
+      - bump-patch
 
 jobs:
   - name: test
@@ -80,6 +81,11 @@ jobs:
           - { get: version, trigger: false, params: {pre: rc} }
       - put: version
         params: {file: version/number}
+
+  - name: bump-patch
+    public: true
+    plan:
+      - { get: version, trigger: true, params: {bump: patch}, passed: [shipit]}
 
   - name: minor
     public: true
@@ -124,9 +130,6 @@ jobs:
             BRANCH:       (( grab meta.github.branch ))
 
       - aggregate:
-        - put: version
-          params:
-            bump: patch
         - put: git
           params:
             rebase: true
