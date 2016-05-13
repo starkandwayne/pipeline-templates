@@ -22,6 +22,7 @@ meta:
   go:
     version: 1.5
     module:  (( concat "github.com/" meta.github.owner "/" meta.github.repo ))
+    cmd_module: (( grab meta.go.module ))
     binary:  (( grab meta.github.repo ))
 
   aws:
@@ -71,7 +72,7 @@ jobs:
             path: (( concat "./gopath/src/" meta.go.module "/ci/scripts/test" ))
             args: []
           params:
-            REPO_ROOT: git
+            MODULE: (( grab meta.go.module ))
 
   - name: rc
     public: true
@@ -85,7 +86,8 @@ jobs:
   - name: bump-patch
     public: true
     plan:
-      - { get: version, trigger: true, params: {bump: patch}, passed: [shipit]}
+      - { get: version, trigger: true, params: { bump: patch }, passed: [shipit] }
+      - { put: version,                params: { file: version/number} }
 
   - name: minor
     public: true
@@ -128,8 +130,11 @@ jobs:
             RELEASE_ROOT: gh
             REPO_OUT:     pushme
             BRANCH:       (( grab meta.github.branch ))
+            CMD_PKG:      (( grab meta.go.cmd_module ))
 
       - aggregate:
+        - put: version
+          params: { bump: final }
         - put: git
           params:
             rebase: true
