@@ -170,19 +170,18 @@ jobs:
           load_repository: (( grab meta.dockerhub.repository ))
           load_tag:        edge
 
-      - aggregate:
-        - put: version
-          params:
-            bump: patch
-        - put: source
-          params:
-            rebase: true
-            repository: pushme/source
-        - put: github
-          params:
-            name: gh/name
-            tag:  gh/tag
-            body: gh/notes.md
+      - put: version
+        params:
+          bump: patch
+      - put: source
+        params:
+          rebase: true
+          repository: pushme/source
+      - put: github
+        params:
+          name: gh/name
+          tag:  gh/tag
+          body: gh/notes.md
 
 resource_types:
   - name: slack-notification
