@@ -13,12 +13,12 @@
 
 meta:
   name:     (( param "Please name your pipeline" ))
-  release:  (( grab meta.name ))
+  release:  (( concat meta.name "-boshrelease" ))
   target:   (( param "Please identify the name of the target Concourse CI" ))
-  pipeline: (( grab meta.name ))
+  pipeline: (( concat meta.name "-boshrelease" ))
 
   aws:
-    bucket:     (( concat meta.name "-pipeline" ))
+    bucket:     (( concat meta.pipeline "-pipeline" ))
     access_key: (( param "Please set your AWS Access Key ID for your pipeline S3 Bucket" ))
     secret_key: (( param "Please set your AWS Secret Key ID for your pipeline S3 Bucket" ))
 
@@ -44,7 +44,7 @@ meta:
     icon:          http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
 
 groups:
-  - name: (( grab meta.name ))
+  - name: (( grab meta.pipeline ))
     jobs:
       - testflight
       - rc
@@ -127,7 +127,7 @@ jobs:
             BOSH_LITE_TARGET:     (( grab meta.bosh-lite.target ))
             BOSH_LITE_USERNAME:   (( grab meta.bosh-lite.username ))
             BOSH_LITE_PASSWORD:   (( grab meta.bosh-lite.password ))
-            BOSH_LITE_DEPLOYMENT: (( concat "ci-" meta.name ))
+            BOSH_LITE_DEPLOYMENT: (( grab meta.bosh-lite.deployment ))
 
             AWS_ACCESS_KEY:       (( grab meta.aws.access_key ))
             AWS_SECRET_KEY:       (( grab meta.aws.secret_key ))
