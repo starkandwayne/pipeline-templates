@@ -50,7 +50,7 @@ meta:
     fail_url: '(( concat "<" meta.url "/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME| Concourse Failure! " meta.slack.upset_moji ">" ))'
 
 groups:
-  - name: (( grab meta.pipeline ))
+  - name: all
     jobs:
       - testflight
       - rc
