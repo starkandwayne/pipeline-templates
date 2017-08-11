@@ -112,3 +112,4 @@ set +x
 $fly_cmd --target ${TARGET} ${fly_opts} --config .deploy.yml
 [[ -n ${VALIDATE_PIPELINE} ]] && exit 0
 $fly_cmd --target ${TARGET} unpause-pipeline --pipeline ${PIPELINE}
+$fly_cmd --target ${TARGET} expose-pipeline --pipeline ${PIPELINE}
