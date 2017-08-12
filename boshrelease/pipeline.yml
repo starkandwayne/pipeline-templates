@@ -32,7 +32,7 @@ meta:
     tag: latest
 
   aws:
-    bucket:     (( concat meta.pipeline "-pipeline" ))
+    bucket:     (( grab meta.pipeline ))
     region_name: us-east-1
     access_key: (( param "Please set your AWS Access Key ID for your pipeline S3 Bucket" ))
     secret_key: (( param "Please set your AWS Secret Key ID for your pipeline S3 Bucket" ))
