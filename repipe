@@ -41,6 +41,20 @@ usage() {
     echo "validate          Validate pipeline instead of set pipeline"
     echo "validate-strict   Validate pipeline with strict mode"
     echo "non-interactive   Run set-pipeline in non-interactive mode"
+    echo "url               Pipeline dashboard URL. Usage: ci/repipe url | xargs -L1 open"
+}
+
+show_pipeline_url() {
+	spruce merge --skip-eval pipeline.yml ${settings_file} > .deploy.yml
+	concourse_url=$(spruce json .deploy.yml | jq -r ".meta.url")
+	team=$(spruce json .deploy.yml | jq -r ".meta.team // \"main\"")
+	pipeline=$(spruce merge --skip-eval \
+		--cherry-pick meta.pipeline \
+		--cherry-pick meta.name \
+		.deploy.yml | spruce merge - | spruce json | jq -r ".meta.pipeline")
+
+	echo "$concourse_url/teams/$team/pipelines/$pipeline"
+	exit 0
 }
 
 for arg do
@@ -50,6 +64,7 @@ for arg do
         validate) VALIDATE_PIPELINE="normal" ;;
         validate-strict|validate_strict) VALIDATE_PIPELINE="strict" ;;
         non-interactive|non_interactive) NON_INTERACTIVE="--non-interactive" ;;
+        url) SHOW_PIPELINE_URL="yes" ;;
         help|-h|--help) usage; exit 0 ;;
         *) echo Invalid argument
             usage
@@ -58,7 +73,7 @@ for arg do
 done
 
 cd $(dirname $BASH_SOURCE[0])
-echo "Working in $(pwd)"
+echo >&2 "Working in $(pwd)"
 need_command spruce
 
 # Allow for target-specific settings
@@ -73,6 +88,9 @@ echo >&2 "Using settings found in ${settings_file}"
 
 set -e
 trap "cleanup" QUIT TERM EXIT INT
+
+[[ -n ${SHOW_PIPELINE_URL} ]] && { show_pipeline_url; exit 0; }
+
 spruce merge pipeline.yml ${settings_file} > .deploy.yml
 PIPELINE=$(spruce json .deploy.yml | jq -r '.meta.pipeline // ""')
 if [[ -z ${PIPELINE} ]]; then
