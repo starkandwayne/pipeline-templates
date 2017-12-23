@@ -23,8 +23,38 @@ case "${1}" in
     ;;
 esac
 
-template=$1
-target=${2:-$(pwd)}
+export template=$1
+export target=${2:-$(pwd)}
+
+apply_shell_expansion() {
+    declare file="$1"
+    declare data=$(< "$file")
+    declare delimiter="__apply_shell_expansion_delimiter__"
+    declare command="cat <<$delimiter"$'\n'"$data"$'\n'"$delimiter"
+    eval "$command"
+}
+
+initial_settings_yml() {
+  local settings_yml=${target}/ci/settings.yml
+  if [[ -f ${src}/${template}/initial_settings.yml ]]; then
+    apply_shell_expansion ${src}/${template}/initial_settings.yml > $settings_yml
+    rm ${target}/ci/initial_settings.yml
+    local team=main
+    local name=$(basename $target)
+    echo "Example commands for setting up credhub for your pipeline:"
+    echo "credhub set -n /concourse/$team/git-commit-email    -t value -v \"\$(git config user.email)\""
+    echo "credhub set -n /concourse/$team/git-commit-name     -t value -v \"\$(git config user.name)\""
+    echo "credhub set -n /concourse/$team/aws-access-key      -t value -v \"\$(grep access_key_id     config/private.yml | awk '{print \$2}')\""
+    echo "credhub set -n /concourse/$team/aws-secret-key      -t value -v \"\$(grep secret_access_key config/private.yml | awk '{print \$2}')\""
+    echo "credhub set -n /concourse/$team/github-access-token -t value -v \"\$(echo \$GITHUB_TOKEN)\""
+    echo "credhub set -n /concourse/$team/github-private-key  -t value -v \"\$(cat ~/.ssh/id_rsa)\""
+    echo "credhub set -n /concourse/$team/$name/slack-username -t value -v concourse"
+    echo "credhub set -n /concourse/$team/$name/slack-icon-url -t value -v https://cl.ly/2F421Y300u07/concourse-logo-blue-transparent.png"
+    echo "credhub set -n /concourse/$team/$name/slack-webhook  -t value -v skip-slack-for-now"
+  else
+    echo "--- {}" > $settings_yml
+  fi
+}
 
 [ -n ${template} ] || usage "ERROR: Missing pipeline template type" 1
 [ -d ${target} ]   || usage "ERROR: ${target} path not found"       1
@@ -36,5 +66,5 @@ echo "Installing ${template} pipeline in ${target}..."
 mkdir -p ${target}/ci
 cp -R ${src}/${template}/* ${target}/ci/
 cp ${src}/repipe ${target}/ci/
-[ -f ${target}/ci/settings.yml ] || echo "--- {}" > ${target}/ci/settings.yml
+[ -f ${target}/ci/settings.yml ] || initial_settings_yml ${template} ${target}
 exit 0
