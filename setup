@@ -37,9 +37,11 @@ apply_shell_expansion() {
 initial_settings_yml() {
   local settings_yml=${target}/ci/settings.yml
   if [[ -f ${src}/${template}/helpers/initial_settings.yml ]]; then
-    apply_shell_expansion ${src}/${template}/helpers/initial_settings.yml > $settings_yml
     export team=${team:-main}
     export name=$(basename $target)
+    export fly_target=${fly_target:-$(fly targets | head -n1 | tail -n1 | awk '{print $1}')}
+    export fly_target_url=$(bosh int ~/.flyrc --path /targets/${fly_target}/api)
+    apply_shell_expansion ${src}/${template}/helpers/initial_settings.yml > $settings_yml
     ${src}/${template}/helpers/credhub-examples.sh
   else
     echo "--- {}" > $settings_yml

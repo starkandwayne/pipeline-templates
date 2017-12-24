@@ -1,8 +1,8 @@
 ---
 meta:
   name:    $(grep final_name config/final.yml  | awk '{print $2}')
-  target:  $(fly targets | head -n1 | tail -n1 | awk '{print $1}')
-  url:     $(fly targets | head -n1 | tail -n1 | awk '{print $2}')
+  target:  ${fly_target}
+  url:     ${fly_target_url}
 
   test-errand: ~
 
