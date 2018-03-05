@@ -27,7 +27,7 @@ meta:
   github:
     owner:  cloudfoundry-community
     repo:   (( grab meta.pipeline ))
-    branch: master
+    branch: $(git branch --no-color | awk '{print $2}')
     private_key:  ((github-private-key))
     access_token: ((github-access-token))
 

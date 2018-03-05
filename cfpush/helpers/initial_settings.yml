@@ -1,0 +1,23 @@
+---
+meta:
+  name:    $(basename $PWD)
+  target:  ${fly_target}
+  url:     ${fly_target_url}
+
+  github:
+    owner:  $(jq .OrganizationFields.Name -r ~/.cf/config.json)
+    repo:   $(basename $PWD)
+    branch: $(git branch --no-color | awk '{print $2}')
+    private_key:  ((github-private-key))
+    access_token: ((github-access-token))
+
+  cf:
+    api:              $(jq .Target -r ~/.cf/config.json)
+    skip_cert_check:  false
+    username:         ((cf-username))
+    password:         ((cf-password))
+    appname:          $(basename $PWD)
+    organization:     $(jq .OrganizationFields.Name -r ~/.cf/config.json)
+    spaces:
+      staging:        $(basename $PWD)-staging
+      production:     $(basename $PWD)-production
