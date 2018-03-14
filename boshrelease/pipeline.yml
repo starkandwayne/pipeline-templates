@@ -70,8 +70,11 @@ groups:
       - testflight-pr
       - rc
       - shipit
+  - name: versioning
+    jobs:
       - major
       - minor
+      - patch
 
 jobs:
   - name: testflight
@@ -263,6 +266,20 @@ jobs:
           username: (( grab meta.slack.username ))
           icon_url: (( grab meta.slack.icon ))
           text:    '(( concat meta.slack.fail_url " " meta.pipeline ": minor job failed" ))'
+
+  - name: patch
+    public: true
+    plan:
+    - do:
+      - { get: version, trigger: false, params: {bump: patch} }
+      - { put: version,                 params: {file: version/number} }
+      on_failure:
+        put: notify
+        params:
+          channel:  (( grab meta.slack.channel ))
+          username: (( grab meta.slack.username ))
+          icon_url: (( grab meta.slack.icon ))
+          text:    '(( concat meta.slack.fail_url " " meta.pipeline ": patch job failed" ))'
 
   - name: major
     public: true
