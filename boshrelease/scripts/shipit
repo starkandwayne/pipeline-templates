@@ -75,7 +75,7 @@ echo "SHA1=$SHA1"
 
 mkdir -p ${RELEASE_ROOT}/artifacts
 echo "v${VERSION}"                         > ${RELEASE_ROOT}/tag
-echo "v${VERSION}"                         > ${RELEASE_ROOT}/name
+echo "${RELEASE_NAME} v${VERSION}"         > ${RELEASE_ROOT}/name
 mv ${REPO_ROOT}/releases/*/*-${VERSION}.tgz  ${RELEASE_ROOT}/artifacts
 mv ${REPO_ROOT}/ci/release_notes.md          ${RELEASE_ROOT}/notes.md
 cat >> ${RELEASE_ROOT}/notes.md <<EOF
@@ -83,10 +83,10 @@ cat >> ${RELEASE_ROOT}/notes.md <<EOF
 ### Deployment
 \`\`\`yaml
 releases:
-- name: $RELEASE_NAME
+- name:    $RELEASE_NAME
   version: $VERSION
-  url: https://github.com/${GITHUB_OWNER}/${RELEASE_NAME}-boshrelease/releases/download/v${VERSION}/${RELEASE_NAME}-${VERSION}.tgz
-  sha1: $SHA1
+  url:     https://github.com/${GITHUB_OWNER}/${RELEASE_NAME}-boshrelease/releases/download/v${VERSION}/${RELEASE_NAME}-${VERSION}.tgz
+  sha1:    $SHA1
 \`\`\`
 EOF
 cat > ${RELEASE_ROOT}/notification <<EOF
