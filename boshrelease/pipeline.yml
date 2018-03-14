@@ -376,6 +376,7 @@ resources:
 
   - name: git-pull-requests
     type: pull-request
+    check_every: 15m # Required due to API throttling.
     source:
       access_token: (( grab meta.github.access_token ))
       private_key:  (( grab meta.github.private_key ))
