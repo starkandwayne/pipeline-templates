@@ -1,0 +1,58 @@
+#!/bin/bash
+
+set -eu
+
+: ${BOSH_ENVIRONMENT:?required}
+: ${BOSH_CA_CERT:?required}
+: ${BOSH_CLIENT:?required}
+: ${BOSH_CLIENT_SECRET:?required}
+
+#
+# stemcell metadata/upload
+#
+
+STEMCELL_OS=${STEMCELL_OS:-ubuntu-trusty}
+STEMCELL_VERSION=$(cat stemcell/version)
+
+bosh -n upload-stemcell "https://bosh.io/d/stemcells/bosh-warden-boshlite-${STEMCELL_OS}-go_agent?v=${STEMCELL_VERSION}"
+
+#
+# release metadata/upload
+#
+
+cd release
+tar -xzf *.tgz $( tar -tzf *.tgz | grep 'release.MF' )
+RELEASE_NAME=$( grep -E '^name: ' release.MF | awk '{print $2}' | tr -d "\"'" )
+RELEASE_VERSION=$( grep -E '^version: ' release.MF | awk '{print $2}' | tr -d "\"'" )
+
+bosh -n upload-release *.tgz
+cd ../
+
+#
+# compilation deployment
+#
+
+cat > manifest.yml <<EOF
+---
+name: compilation
+releases:
+- name: "$RELEASE_NAME"
+  version: "$RELEASE_VERSION"
+stemcells:
+- alias: default
+  os: "$STEMCELL_OS"
+  version: "$STEMCELL_VERSION"
+update:
+  canaries: 1
+  max_in_flight: 1
+  canary_watch_time: 1000 - 90000
+  update_watch_time: 1000 - 90000
+instance_groups: []
+EOF
+
+bosh -n -d compilation deploy manifest.yml
+bosh -d compilation export-release $RELEASE_NAME/$RELEASE_VERSION $STEMCELL_OS/$STEMCELL_VERSION
+
+mkdir -p compiled-release/compiled-releases
+mv *.tgz compiled-release/compiled-releases/$( echo *.tgz | sed "s/\.tgz$/-$( date -u +%Y%m%d%H%M%S ).tgz/" )
+sha1sum  compiled-release/compiled-releases/*.tgz

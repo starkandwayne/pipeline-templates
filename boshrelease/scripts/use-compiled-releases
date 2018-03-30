@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -eu
+
+tar -xzf compiled-releases/*.tgz $( tar -tzf compiled-releases/*.tgz | grep 'release.MF' )
+RELEASE_NAME=$( grep -E '^name: ' release.MF | awk '{print $2}' | tr -d "\"'" )
+RELEASE_VERSION=$( grep -E '^version: ' release.MF | awk '{print $2}' | tr -d "\"'" )
+
+RELEASE_URL=$(cat compiled-releases/url)
+RELEASE_SHA1=$(sha1sum compiled-releases/*.tgz | awk '{print $1}')
+
+STEMCELL_OS=${STEMCELL_OS:-ubuntu-trusty}
+STEMCELL_VERSION=$(cat stemcell/version)
+
+git clone ${REPO_ROOT} ${REPO_OUT}
+
+cat > ${REPO_OUT}/manifests/operators/use-compiled-releases.yml <<-YAML
+- path: /releases/name=${RELEASE_NAME}/url
+  type: replace
+  value: "${RELEASE_URL}"
+- path: /releases/name=${RELEASE_NAME}/version
+  type: replace
+  value: "${RELEASE_VERSION}"
+- path: /releases/name=${RELEASE_NAME}/sha1
+  type: replace
+  value: "${RELEASE_SHA1}"
+
+- path: /releases/name=${RELEASE_NAME}/stemcell?
+  type: replace
+  value:
+    os: "${STEMCELL_OS}"
+    version: "${STEMCELL_VERSION}"
+YAML
+
+if [[ -z $(git config --global user.email) ]]; then
+  git config --global user.email "${GIT_EMAIL}"
+fi
+if [[ -z $(git config --global user.name) ]]; then
+  git config --global user.name "${GIT_NAME}"
+fi
+
+pushd $REPO_OUT
+  git merge --no-edit ${BRANCH}
+  git add -A
+  git status
+  git commit -m "Updated compiled releases v${RELEASE_VERSION} for ${STEMCELL_OS}/${STEMCELL_VERSION}"
+popd

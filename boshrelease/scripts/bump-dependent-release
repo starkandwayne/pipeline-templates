@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# The goal of this script is to retain the pretty nature of manifests, whilst updating
+# the "releases:" section.
+#
+# If we use `spruce merge` to do the job, the entire manifest will be reordered -
+# keys will be sorted alphabetically. Comments will be lost.
+#
+# Instead, we assume that "releases:" is the last section of the manifest.
+set -e
+
+: ${REPO_ROOT:?required}
+: ${REPO_OUT:?required}
+: ${RELEASE:?required}
+: ${NAME:?required}
+
+if [[ ! -f ${RELEASE}/version ]]; then
+  echo "Director ${RELEASE} must have file /version"
+  exit 1
+fi
+
+git clone ${REPO_ROOT} ${REPO_OUT}
+
+version=$(cat ${RELEASE}/version)
+
+# So, this is a nested bash/spruce/jq combo.
+# What is happening here is that the "releases:" section of each deployment manifest
+# is being updated with the new version/sha1 for the release.
+#
+# We use "spruce json manifest.yml | jq '.releases'" to extract the existing releases array
+# and the '.releases | map(if .name == $name)' will modify a specific element of the array
+#
+# This gives us a modified "releases: [{...}, {...}]" segment of the final deployment manifest.
+# We now need to merge this back into the original manifest.
+#
+# But, I don't want to just use `spruce merge` for this as it will reorder the manifest and
+# make it ugly. If I didn't care about the manifest's aesthetics then this whole script
+# would be simpler. I want the original layout of the manifest to be retained; and so
+# we will just chomp out the original "releases:" section at the end of the file and
+# paste in the updated releases section.
+function bump_version {
+  manifest_path=$1
+  releases_updated=$(spruce merge <<YAML
+releases: $(spruce json "$manifest_path" | jq --arg name $NAME --arg version $version '.releases | map(
+    if .name == $name
+    then . + {"version":$version}
+    else .
+    end)'
+)
+YAML
+)
+  releases_line_number=$(awk '/^releases:/{ print NR; exit }' $manifest_path)
+  manifest_head=$(head -n `expr $releases_line_number - 1` $manifest_path)
+  cat > $manifest_path <<YAML
+${manifest_head}
+
+${releases_updated}
+YAML
+}
+
+cd ${REPO_OUT}
+for manifest_path in $(ls manifests/*.yml); do
+  bump_version $manifest_path
+done
+
+cat <<EOF >>ci/release_notes.md
+* Bumped ${NAME} to v${version}
+EOF
+
+
+if [[ -z $(git config --global user.email) ]]; then
+  git config --global user.email "${GIT_EMAIL}"
+fi
+if [[ -z $(git config --global user.name) ]]; then
+  git config --global user.name "${GIT_NAME}"
+fi
+
+git merge --no-edit ${BRANCH}
+git add -A
+git status
+git commit -m "bump ${NAME} v${version}"

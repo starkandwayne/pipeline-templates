@@ -70,6 +70,8 @@ groups:
       - testflight-pr
       - rc
       - shipit
+      - compile-release-3541
+      - use-compiled-releases
   - name: versioning
     jobs:
       - major
@@ -340,7 +342,7 @@ jobs:
         put: git
         params:
           rebase: true
-          repository: pushme/git
+          repository: pushme
       - name: tarball
         put: s3-tarball
         params:
@@ -371,6 +373,84 @@ jobs:
           username: (( grab meta.slack.username ))
           icon_url: (( grab meta.slack.icon ))
           text:    '(( concat meta.slack.fail_url " " meta.pipeline ": shipit job failed" ))'
+
+  - name: compile-release-3541
+    plan:
+      - aggregate:
+        - get: git
+        - get: github
+          trigger: true
+        - get: ubuntu-trusty-stemcell-3541
+          params: {tarball: false}
+      - task: export-release
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: (( grab meta.image.name ))
+              tag:        (( grab meta.image.tag ))
+          inputs:
+            - name: git
+            - name: ubuntu-trusty-stemcell-3541
+              path: stemcell
+            - name: github
+              path: release
+          outputs:
+            - name: compiled-release
+          run:
+            path: git/ci/scripts/export-release
+          params:
+            BOSH_ENVIRONMENT:     (( grab meta.bosh-lite.target ))
+            BOSH_CA_CERT:         (( grab meta.bosh-lite.cacert ))
+            BOSH_CLIENT:          (( grab meta.bosh-lite.username ))
+            BOSH_CLIENT_SECRET:   (( grab meta.bosh-lite.password ))
+      - put: compiled-releases
+        params:
+          file: "compiled-release/compiled-releases/*.tgz"
+
+  - name: use-compiled-releases
+    plan:
+      - aggregate:
+        - get: git
+        - get: github
+          passed: [compile-release-3541]
+          trigger: true
+        - get: ubuntu-trusty-stemcell-3541
+          passed: [compile-release-3541]
+          params: {tarball: false}
+        - get: compiled-releases
+          passed: [compile-release-3541]
+      - task: use-compiled-releases
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: (( grab meta.image.name ))
+              tag:        (( grab meta.image.tag ))
+          inputs:
+            - name: git
+            - name: ubuntu-trusty-stemcell-3541
+              path: stemcell
+            - name: github
+              path: release
+            - name: compiled-releases
+          outputs:
+            - name: pushme
+          run:
+            path: git/ci/scripts/use-compiled-releases
+          params:
+            REPO_ROOT: git
+            REPO_OUT:  pushme
+            GIT_EMAIL: (( grab meta.git.email ))
+            GIT_NAME:  (( grab meta.git.name ))
+            BRANCH:    (( grab meta.github.branch ))
+      - name: upload-git
+        put: git
+        params:
+          rebase: true
+          repository: pushme
 
 resource_types:
   - name: slack-notification
@@ -431,3 +511,18 @@ resources:
       regexp:            (( concat meta.name "-(.*).tgz" ))
       access_key_id:     (( grab meta.aws.access_key ))
       secret_access_key: (( grab meta.aws.secret_key ))
+
+  - name: ubuntu-trusty-stemcell-3541
+    type: bosh-io-stemcell
+    source:
+      name: bosh-warden-boshlite-ubuntu-trusty-go_agent
+      version_family: 3541.latest
+
+  - name: compiled-releases
+    type: s3
+    source:
+      bucket:            (( grab meta.aws.bucket ))
+      region_name:       (( grab meta.aws.region_name ))
+      access_key_id:     (( grab meta.aws.access_key ))
+      secret_access_key: (( grab meta.aws.secret_key ))
+      regexp:            "compiled-releases/.*-(\\d+).tgz"

@@ -48,7 +48,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 ###############################################################
 
-cd ${REPO_ROOT}
+git clone ${REPO_ROOT} ${REPO_OUT}
+
+pushd ${REPO_OUT}
 RELEASE_NAME=$(bosh2 int config/final.yml --path /final_name)
 
 cat > config/private.yml <<YAML
@@ -67,17 +69,18 @@ header "Create final release..."
 bosh2 -n create-release --final --version "${VERSION}"
 bosh2 -n create-release releases/$RELEASE_NAME/$RELEASE_NAME-$VERSION.yml \
               --tarball releases/$RELEASE_NAME/$RELEASE_NAME-$VERSION.tgz
-cd -
+popd
 
-RELEASE_TGZ=$REPO_ROOT/releases/$RELEASE_NAME/$RELEASE_NAME-$VERSION.tgz
-export SHA1=$(sha1sum $RELEASE_TGZ | head -n1 | awk '{print $1}')
-echo "SHA1=$SHA1"
+RELEASE_TGZ=$REPO_OUT/releases/$RELEASE_NAME/$RELEASE_NAME-$VERSION.tgz
+export RELEASE_SHA1=$(sha1sum $RELEASE_TGZ | head -n1 | awk '{print $1}')
+export RELEASE_URL="https://github.com/${GITHUB_OWNER}/${RELEASE_NAME}-boshrelease/releases/download/v${VERSION}/${RELEASE_NAME}-${VERSION}.tgz"
+echo "RELEASE_SHA1=$RELEASE_SHA1"
 
 mkdir -p ${RELEASE_ROOT}/artifacts
 echo "v${VERSION}"                         > ${RELEASE_ROOT}/tag
-echo "${RELEASE_NAME} v${VERSION}"         > ${RELEASE_ROOT}/name
-mv ${REPO_ROOT}/releases/*/*-${VERSION}.tgz  ${RELEASE_ROOT}/artifacts
-mv ${REPO_ROOT}/ci/release_notes.md          ${RELEASE_ROOT}/notes.md
+echo "v${VERSION}"                         > ${RELEASE_ROOT}/name
+mv ${REPO_OUT}/releases/*/*-${VERSION}.tgz   ${RELEASE_ROOT}/artifacts
+mv ${REPO_OUT}/ci/release_notes.md           ${RELEASE_ROOT}/notes.md
 cat >> ${RELEASE_ROOT}/notes.md <<EOF
 
 ### Deployment
@@ -85,8 +88,8 @@ cat >> ${RELEASE_ROOT}/notes.md <<EOF
 releases:
 - name:    $RELEASE_NAME
   version: $VERSION
-  url:     https://github.com/${GITHUB_OWNER}/${RELEASE_NAME}-boshrelease/releases/download/v${VERSION}/${RELEASE_NAME}-${VERSION}.tgz
-  sha1:    $SHA1
+  url:     $RELEASE_URL
+  sha1:    $RELEASE_SHA1
 \`\`\`
 EOF
 cat > ${RELEASE_ROOT}/notification <<EOF
@@ -102,17 +105,14 @@ if [[ -z $(git config --global user.name) ]]; then
   git config --global user.name "${GIT_NAME}"
 fi
 
-(cd ${REPO_ROOT}
- for MANIFEST_PATH in $(ls manifests/*.yml); do
-   $DIR/update-manifest $GITHUB_OWNER $RELEASE_NAME $VERSION $SHA1 $MANIFEST_PATH
- done
- git merge --no-edit ${BRANCH}
- git add -A
- git status
- git commit -m "release v${VERSION}")
+pushd $REPO_OUT
+$DIR/update-manifest-release $RELEASE_NAME $VERSION $RELEASE_URL $RELEASE_SHA1
 
-# so that future steps in the pipeline can push our changes
-cp -a ${REPO_ROOT} ${REPO_OUT}
+git merge --no-edit ${BRANCH}
+git add -A
+git status
+git commit -m "release v${VERSION}"
+popd
 
 cat > ${NOTIFICATION_OUT:-notifications}/message <<EOS
 New ${RELEASE_NAME} v${VERSION} released. <https://github.com/${GITHUB_OWNER}/${RELEASE_NAME}-boshrelease/releases/tag/v${VERSION}|Release notes>.

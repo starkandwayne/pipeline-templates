@@ -9,19 +9,16 @@
 # Instead, we assume that "releases:" is the last section of the manifest.
 set -e
 
-: ${REPO_ROOT:?required}
-: ${REPO_OUT:?required}
-: ${RELEASE:?required}
-: ${NAME:?required}
-
-if [[ ! -f ${RELEASE}/version ]]; then
-  echo "Director ${RELEASE} must have file /version"
+NAME=$1
+VERSION=$2
+RELEASE_TGZ_URL=$3
+RELEASE_TGZ_SHA1=$4
+if [[ "${RELEASE_TGZ_SHA1:-X}" == "X" ]]; then
+  echo "USAGE: update-manifest-release NAME VERSION URL SHA1"
   exit 1
 fi
-
-git clone ${REPO_ROOT} ${REPO_OUT}
-
-version=$(cat ${RELEASE}/version)
+: ${REPO_ROOT:?required}
+: ${REPO_OUT:?required}
 
 # So, this is a nested bash/spruce/jq combo.
 # What is happening here is that the "releases:" section of each deployment manifest
@@ -41,16 +38,15 @@ version=$(cat ${RELEASE}/version)
 function bump_version {
   manifest_path=$1
   releases_updated=$(spruce merge <<YAML
-releases: $(spruce json $manifest_path | jq --arg name $NAME --arg version $version '.releases | map(
+releases: $(spruce json "$manifest_path" | jq --arg name $NAME --arg version $VERSION --arg url $RELEASE_TGZ_URL --arg sha1 $RELEASE_TGZ_SHA1 '.releases | map(
     if .name == $name
-    then . + {"version":$version}
+    then . + {"version":$version,"url":$url,"sha1":$sha1}
     else .
     end)'
 )
 YAML
 )
   releases_line_number=$(awk '/^releases:/{ print NR; exit }' $manifest_path)
-  manifest_len=$(wc -l $manifest_path | awk '{print $1}')
   manifest_head=$(head -n `expr $releases_line_number - 1` $manifest_path)
   cat > $manifest_path <<YAML
 ${manifest_head}
@@ -59,23 +55,6 @@ ${releases_updated}
 YAML
 }
 
-if [[ -z $(git config --global user.email) ]]; then
-  git config --global user.email "${GIT_EMAIL}"
-fi
-if [[ -z $(git config --global user.name) ]]; then
-  git config --global user.name "${GIT_NAME}"
-fi
-
-cd ${REPO_OUT}
 for manifest_path in $(ls manifests/*.yml); do
   bump_version $manifest_path
 done
-
-cat <<EOF >>ci/release_notes.md
-* Bumped ${NAME} to v${version}
-EOF
-
-git merge --no-edit ${BRANCH}
-git add -A
-git status
-git commit -m "bump ${NAME} v${version}"
