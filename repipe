@@ -41,7 +41,7 @@ usage() {
     echo "validate          Validate pipeline instead of set pipeline"
     echo "validate-strict   Validate pipeline with strict mode"
     echo "non-interactive   Run set-pipeline in non-interactive mode"
-    echo "url               Pipeline dashboard URL. Usage: ci/repipe url | xargs -L1 open"
+    echo "open              Open pipeline dashboard to browser (if possible)"
 }
 
 open_pipeline() {
