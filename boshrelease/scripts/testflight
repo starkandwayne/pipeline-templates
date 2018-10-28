@@ -2,7 +2,7 @@
 #
 # ci/scripts/testflight
 #
-# Script for testing a BOSH release using bosh2
+# Script for testing a BOSH release using bosh
 #
 # author:  James Hunt <james@niftylogic.com>
 
@@ -29,7 +29,7 @@ header() {
 
 delete_deployment() {
 	header "Cleaning up deployment..."
-	bosh2 -n delete-deployment --force
+	bosh -n delete-deployment --force
 }
 trap "echo; echo; echo; sleep 10; delete_deployment" EXIT SIGINT SIGTERM
 
@@ -77,7 +77,7 @@ if [[ "${PROXY_IP:-X}" != "X" ]] ; then export BOSH_ALL_PROXY=socks5://localhost
 delete_deployment
 
 header "Creating candidate BOSH release..."
-bosh2 -n reset-release # in case dev_releases/ is in repo accidentally
+bosh -n reset-release # in case dev_releases/ is in repo accidentally
 
 cat > config/private.yml <<YAML
 ---
@@ -87,16 +87,16 @@ blobstore:
     access_key_id: ${AWS_ACCESS_KEY}
     secret_access_key: ${AWS_SECRET_KEY}
 YAML
-bosh2 create-release
-bosh2 upload-release --rebase
+bosh create-release
+bosh upload-release --rebase
 
 header "Deploying to ${BOSH_ENVIRONMENT}..."
-release_name=$(bosh2 int config/final.yml --path /final_name)
+release_name=$(bosh int config/final.yml --path /final_name)
 
 header "Choosing cloud-config options"
-vm_type=$(bosh2 int <(bosh2 cloud-config) --path /vm_types/0/name)
-disk_type=$(bosh2 int <(bosh2 cloud-config) --path /disk_types/0/name)
-network=$(bosh2 int <(bosh2 cloud-config) --path /networks/0/name)
+vm_type=$(bosh int <(bosh cloud-config) --path /vm_types/0/name)
+disk_type=$(bosh int <(bosh cloud-config) --path /disk_types/0/name)
+network=$(bosh int <(bosh cloud-config) --path /networks/0/name)
 
 release_final_version=$(spruce json dev_releases/*/index.yml | jq -r ".builds[].version" | sed -e "s%+.*%%")
 release_dev_version="${release_final_version}.latest"
@@ -144,7 +144,7 @@ done
 
 set -x
 
-bosh2 int ${MANIFEST_PATH} \
+bosh int ${MANIFEST_PATH} \
   -o tmp/deployment.yml    \
   ${op_patch_files_flags}            \
   --vars-store tmp/creds.yml \
@@ -152,14 +152,14 @@ bosh2 int ${MANIFEST_PATH} \
   --var-errs \
     > tmp/manifest.yml
 
-bosh2 -n deploy tmp/manifest.yml
+bosh -n deploy tmp/manifest.yml
 
 TEST_ERRAND=${TEST_ERRAND:-} # backwards compatibility
 TEST_ERRANDS=${TEST_ERRANDS:-$TEST_ERRAND}
 if [[ -n ${TEST_ERRANDS} ]]; then
 	for errand in ${TEST_ERRANDS}; do
 		header "Running '${errand}' errand"
-		bosh2 -n run-errand ${errand}
+		bosh -n run-errand ${errand}
 	done
 else
 	echo "No test errands specified, skipping."

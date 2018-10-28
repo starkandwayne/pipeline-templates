@@ -23,13 +23,13 @@ EOF
 
 blobs_to_remove=$(spruce json config/blobs.yml | jq -r "keys[] | select(test(\"${BLOB_CLEANUP}\"))")
 if [[ ! -z $blobs_to_remove ]]; then
-  echo "$blobs_to_remove" | xargs -L1 bosh2 remove-blob
+  echo "$blobs_to_remove" | xargs -L1 bosh remove-blob
 fi
 
 # expand ${VERSION} env var into file path
 eval "blob_destination=${BLOB_DESTINATION}"
-bosh2 add-blob ../${BLOB_DIR}/${BLOB_BINARY} "${blob_destination}"
-bosh2 -n upload-blobs
+bosh add-blob ../${BLOB_DIR}/${BLOB_BINARY} "${blob_destination}"
+bosh -n upload-blobs
 rm config/private.yml
 popd
 
