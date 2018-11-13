@@ -10,7 +10,7 @@ pieces together into a functioning Concourse pipeline.
 
 Setup is straightforward:
 
-```
+```shell
 git clone https://github.com/starkandwayne/pipeline-templates
 cd pipeline-templates
 ./setup boshrelease ~/bosh/my-new-boshrelease
@@ -19,16 +19,18 @@ cd pipeline-templates
 Alternatively, you can initialize the pipeline from inside the
 target repository:
 
-```
+```shell
 cd code/my-buildpack
 ~/code/pipeline-templates/setup buildpack
 ```
+
 The first argument to `setup` is the template you want to use. Currently available templates:
 
 * `docker/base`
 * `go`
 * `boshrelease`
 * `buildpack`
+* `helm`
 
 Don't let the name fool you!  `./setup` can also be used to update
 an existing templated pipeline `ci/` directory to pick up new
@@ -37,7 +39,7 @@ changes made to the templates.
 Once you've set up your repository, you'll need to fill in your
 `ci/settings.yml` file with any parameters the template required:
 
-```
+```shell
 cd code/my-project
 ci/repipe # Attempt to update the pipeline config,
           # spitting out errors for missing parameters
@@ -51,20 +53,19 @@ The `ci/repipe` script uses [Spruce](https://github.com/geofffranks/spruce) to m
 
 On MacOS/Homebrew:
 
-```
+```shell
 brew install starkandwayne/cf/spruce
 ```
 
 On Debian/Ubuntu:
 
-```
+```shell
 wget -q -O - https://raw.githubusercontent.com/starkandwayne/homebrew-cf/master/public.key | apt-key add -
 echo "deb http://apt.starkandwayne.com stable main" | tee /etc/apt/sources.list.d/starkandwayne.list
 apt-get update
 
 apt-get install spruce
 ```
-
 
 ## And Now, The Templates!
 
@@ -98,6 +99,12 @@ artifact, and also uploading that release tarball to S3.
 Runs unit and integration tests on a Cloud Foundry buildpack, and can release it to Github.
 
 ![Buildpack Pipeline][buildpack-pipeline]
+
+### helm
+
+Builds a docker image and uploads Helm chart to an S3 bucket
+
+![Helm][helm-pipeline]
 
 ## ci/settings.yml
 
@@ -154,3 +161,4 @@ safe set secret/pipelines/eden/slack webhook=https://hooks.slack.com/services/T2
 [boshrelease-pipeline]: https://raw.githubusercontent.com/starkandwayne/pipeline-templates/master/screenshots/boshrelease.png
 [go-pipeline]:          https://raw.githubusercontent.com/starkandwayne/pipeline-templates/master/screenshots/go.png
 [buildpack-pipeline]:          https://raw.githubusercontent.com/starkandwayne/pipeline-templates/master/screenshots/buildpack.png
+[helm-pipeline]: https://raw.githubusercontent.com/starkandwayne/pipeline-templates/master/screenshots/helm.png
