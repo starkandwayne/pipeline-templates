@@ -1,0 +1,287 @@
+---
+#
+# ci/pipeline.yml
+#
+# Pipeline structure file for a Helm Chart & Docker Image pipeline
+#
+# DO NOT MAKE CHANGES TO THIS FILE.  Instead, modify
+# ci/settings.yml and override what needs overridden.
+# This uses spruce, so you have some options there.
+#
+# author:  Dr Nic Williams <drnicwilliams@gmail.com>
+# created: 2018-11-09
+
+meta:
+  name:     (( param "Please name your pipeline" ))
+  release:  (( grab meta.name ))
+  target:   (( param "Please identify the name of the target Concourse CI" ))
+  url:      (( param "Please specify the full url of the target Concourse CI" ))
+  pipeline: (( grab meta.name ))
+  image:
+    name: starkandwayne/concourse-kubernetes
+    tag: latest
+
+  git:
+    email:  (( param "Please provide the git email for automated commits" ))
+    name:   (( param "Please provide the git name for automated commits" ))
+
+  aws:
+    bucket:     (( concat meta.name "-pipeline" ))
+    region_name: us-east-1
+    access_key: (( param "Please set your AWS Access Key ID" ))
+    secret_key: (( param "Please set your AWS Secret Key ID" ))
+    charts_uri: (( param "Please set your s3://bucket-name/charts URI" ))
+
+  github:
+    uri:          (( concat "git@github.com:" meta.github.owner "/" meta.github.repo ))
+    owner:        (( param "Please specify the name of the user / organization that owns the Github repository" ))
+    repo:         (( param "Please specify the name of the Github repository" ))
+    branch:       master
+    private_key:  (( param "Please generate an SSH Deployment Key for this repo and specify it here" ))
+    access_token: (( param "Please generate a Personal Access Token and specify it here" ))
+
+  dockerhub:
+    username:   (( param "Please specify the username for your Dockerhub account" ))
+    password:   (( param "Please specify the password for your Dockerhub account" ))
+    repository: (( param "Please specify the name of the image (repo/name) that you are building" ))
+
+  slack:
+    webhook:       (( param "Please specify your Slack Incoming Webhook Integration URL" ))
+    success_moji:  ":airplane_departure:"
+    fail_moji:     ":airplane_arriving:"
+    upset_moji:    ":sad_panda:"
+    channel:       (( param "Please specify the channel (#name) or user (@user) to send messages to" ))
+    username:      concourse
+    icon:          https://cl.ly/2F421Y300u07/concourse-logo-blue-transparent.png
+    fail_url: '(( concat "<" meta.url "/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME| Concourse Failure! " meta.slack.upset_moji ">" ))'
+
+groups:
+  - name: (( grab meta.name ))
+    jobs:
+      - latest-image
+      - rc
+      - shipit
+  - name: versioning
+    jobs:
+      - major
+      - minor
+      - patch
+jobs:
+  - name: latest-image
+    public: true
+    serial: true
+    plan:
+      - get: git
+        trigger: true
+      - put: image-latest
+        params:
+          build: git
+        on_failure:
+          put: notify
+          params:
+            channel:  (( grab meta.slack.channel ))
+            username: (( grab meta.slack.username ))
+            icon_url: (( grab meta.slack.icon ))
+            text:    '(( concat meta.slack.fail_url " " meta.pipeline ": patch job failed" ))'
+
+  - name: shipit
+    public: true
+    serial: true
+    plan:
+    - do:
+      - name: inputs
+        aggregate:
+          # - { get: version,  params: {bump: final} }
+          # - { get: git }
+          - { get: version, passed: [rc], params: {bump: final} }
+          - { get: git,     passed: [rc] }
+          - { get: image-latest, passed: [latest-image], params: { save: true } }
+      - aggregate:
+        - name: docker-push-tag
+          put: image-latest # as 'vX.Y.Z'
+          params:
+            tag:        version/number
+            load:       image-latest
+        - name: package-chart
+          task: package-chart
+          config:
+            platform: linux
+            image_resource:
+              type: docker-image
+              source:
+                repository: (( grab meta.image.name ))
+                tag:        (( grab meta.image.tag ))
+            inputs:
+              - name: version
+              - name: git
+            outputs:
+              - name: gh
+              - name: pushme
+              - name: notifications
+            run:
+              path: ./git/ci/scripts/shipit
+              args: []
+            params:
+              CHART_NAME:   (( grab meta.name ))
+              REPO_ROOT:    git
+              VERSION_FROM: version/number
+              RELEASE_ROOT: gh
+              REPO_OUT:     pushme
+              BRANCH:        (( grab meta.github.branch ))
+              GITHUB_OWNER:  (( grab meta.github.owner ))
+              GIT_EMAIL:      (( grab meta.git.email ))
+              GIT_NAME:       (( grab meta.git.name ))
+              NOTIFICATION_OUT: notifications
+              AWS_ACCESS_KEY_ID:     (( grab meta.aws.access_key ))
+              AWS_SECRET_ACCESS_KEY: (( grab meta.aws.secret_key ))
+              AWS_DEFAULT_REGION:    (( grab meta.aws.region_name ))
+              HELM_S3_BUCKET_URI:    (( grab meta.aws.charts_uri ))
+
+      - name: upload-git
+        put: git
+        params:
+          rebase: true
+          repository: pushme
+      - name: github-release
+        put: github
+        params:
+          name:   gh/name
+          tag:    gh/tag
+          body:   gh/notes.md
+          globs: [gh/artifacts/*]
+      - name: version-bump
+        put: version
+        params:
+          bump: patch
+      # - name: notify
+      #   aggregate:
+      #   - put: notify
+      #     params:
+      #       channel:  (( grab meta.slack.channel ))
+      #       username: (( grab meta.slack.username ))
+      #       icon_url: (( grab meta.slack.icon ))
+      #       text_file: notifications/message
+      on_failure:
+        put: notify
+        params:
+          channel:  (( grab meta.slack.channel ))
+          username: (( grab meta.slack.username ))
+          icon_url: (( grab meta.slack.icon ))
+          text:    '(( concat meta.slack.fail_url " " meta.pipeline ": shipit job failed" ))'
+
+  - name: rc
+    public: true
+    serial: true
+    plan:
+    - do:
+      - aggregate:
+          # - { get: git,     trigger: true }
+          - { get: git,     trigger: true, passed: [latest-image] }
+          - { get: version, trigger: true, params: {pre: rc} }
+      - task: release-notes
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: (( grab meta.image.name ))
+              tag:        (( grab meta.image.tag ))
+          inputs:
+              - { name: git }
+          run:
+            path: sh
+            args:
+            - -ce
+            - |
+              cd git
+              if [ -f ci/release_notes.md ]; then
+                echo "######   RELEASE NOTES   ###############"
+                echo
+                cat ci/release_notes.md
+                echo
+                echo "########################################"
+                echo
+              else
+                echo "NO RELEASE NOTES HAVE BEEN WRITTEN"
+                echo "You *might* want to do that before"
+                echo "hitting (+) on that shipit job..."
+                echo
+              fi
+      - put: version
+        params: {file: version/number}
+      on_failure:
+        put: notify
+        params:
+          channel:  (( grab meta.slack.channel ))
+          username: (( grab meta.slack.username ))
+          icon_url: (( grab meta.slack.icon ))
+          text:    '(( concat meta.slack.fail_url " " meta.pipeline ": rc job failed" ))'
+
+  - name: minor
+    public: true
+    plan:
+      - { get: version, trigger: false, params: {bump: minor} }
+      - { put: version,                 params: {file: version/number} }
+
+  - name: major
+    public: true
+    plan:
+      - { get: version, trigger: false, params: {bump: major} }
+      - { put: version,                 params: {file: version/number} }
+
+  - name: patch
+    public: true
+    plan:
+    - do:
+      - { get: version, trigger: false, params: {bump: patch} }
+      - { put: version,                 params: {file: version/number} }
+      on_failure:
+        put: notify
+        params:
+          channel:  (( grab meta.slack.channel ))
+          username: (( grab meta.slack.username ))
+          icon_url: (( grab meta.slack.icon ))
+          text:    '(( concat meta.slack.fail_url " " meta.pipeline ": patch job failed" ))'
+
+resource_types:
+  - name: slack-notification
+    type: docker-image
+    source:
+      repository: cfcommunity/slack-notification-resource
+
+resources:
+  - name: git
+    type: git
+    source:
+      uri:         (( grab meta.github.uri ))
+      branch:      (( grab meta.github.branch ))
+      private_key: (( grab meta.github.private_key ))
+
+  - name: image-latest
+    type: docker-image
+    source:
+      .: (( inject meta.dockerhub ))
+      tag: latest
+
+  - name: version
+    type: semver
+    source :
+      driver:            s3
+      bucket:            (( grab meta.aws.bucket ))
+      region_name:       (( grab meta.aws.region_name ))
+      key:               version
+      access_key_id:     (( grab meta.aws.access_key ))
+      secret_access_key: (( grab meta.aws.secret_key ))
+      initial_version:   (( grab meta.initial_version || "0.0.1" ))
+
+  - name: notify
+    type: slack-notification
+    source:
+      url: (( grab meta.slack.webhook ))
+
+  - name: github
+    type: github-release
+    source:
+      user:         (( grab meta.github.owner ))
+      repository:   (( grab meta.github.repo ))
+      access_token: (( grab meta.github.access_token ))
