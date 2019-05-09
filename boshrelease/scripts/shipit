@@ -84,6 +84,7 @@ mv ${REPO_OUT}/ci/release_notes.md           ${RELEASE_ROOT}/notes.md
 cat >> ${RELEASE_ROOT}/notes.md <<EOF
 
 ### Deployment
+
 \`\`\`yaml
 releases:
 - name:    $RELEASE_NAME
