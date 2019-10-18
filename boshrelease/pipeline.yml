@@ -535,11 +535,6 @@ resources:
       access_key_id:     (( grab meta.aws.access_key ))
       secret_access_key: (( grab meta.aws.secret_key ))
 
-  # - name: ubuntu-xenial-stemcell-456
-  #   type: bosh-io-stemcell
-  #   source:
-  #     name: bosh-aws-xen-hvm-ubuntu-xenial-go_agent
-  #     version_family: 456.latest
   - name: (( concat meta.bosh.stemcell.os "-stemcell-" meta.bosh.stemcell.major ))
     type: bosh-io-stemcell
     source:
