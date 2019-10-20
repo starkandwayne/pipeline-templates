@@ -21,7 +21,7 @@ meta:
     path:   (( concat meta.manifest.directory "/" meta.name ".yml" ))
     vars:   "--- {}"
     vars-pr: (( grab meta.manifest.vars ))
-    operator_file_paths: "" # comma separated list relative to repo root
+    operator_file_paths: "" # comma (or space) separated list relative to repo root
 
   git:
     email:  (( param "Please provide the git email for automated commits" ))
