@@ -393,6 +393,7 @@ jobs:
           text:    '(( concat meta.slack.fail_url " " meta.pipeline ": shipit job failed" ))'
 
   - name: compile-release
+    old_name: compile-release-456
     plan:
       - get: git
       - get: github
