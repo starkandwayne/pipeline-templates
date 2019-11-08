@@ -449,6 +449,8 @@ jobs:
             BOSH_CA_CERT:         (( grab meta.bosh.cacert ))
             BOSH_CLIENT:          (( grab meta.bosh.username ))
             BOSH_CLIENT_SECRET:   (( grab meta.bosh.password ))
+            STEMCELL_CPI:         (( grab meta.bosh.stemcell.cpi ))
+            STEMCELL_OS:          (( grab meta.bosh.stemcell.os ))
       - put: compiled-release
         params:
           file: (( concat "compiled-release/compiled-releases/" meta.name "/*.tgz" ))
@@ -487,11 +489,12 @@ jobs:
           run:
             path: git/ci/scripts/use-compiled-releases
           params:
-            REPO_ROOT: git
-            REPO_OUT:  pushme
-            GIT_EMAIL: (( grab meta.git.email ))
-            GIT_NAME:  (( grab meta.git.name ))
-            BRANCH:    (( grab meta.github.branch ))
+            REPO_ROOT:     git
+            REPO_OUT:      pushme
+            GIT_EMAIL:     (( grab meta.git.email ))
+            GIT_NAME:      (( grab meta.git.name ))
+            BRANCH:        (( grab meta.github.branch ))
+            STEMCELL_OS:   (( grab meta.bosh.stemcell.os ))
       - name: upload-git
         put: git
         params:
