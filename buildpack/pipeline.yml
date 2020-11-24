@@ -73,14 +73,11 @@ jobs:
     - do:
       - in_parallel:
         - { get: git, trigger: true }
+        - { get: image }
       - task: unit-tests
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - { name: git }
           run:
@@ -102,14 +99,11 @@ jobs:
     - do:
       - in_parallel:
         - { get: git, trigger: true }
+        - { get: image }
       - task: integration-tests
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - { name: git }
           run:
@@ -182,14 +176,11 @@ jobs:
       - in_parallel:
           - { get: version, passed: [rc], params: {bump: final} }
           - { get: git,     passed: [rc] }
+          - { get: image }
       - task: release
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - name: version
             - name: git
@@ -247,6 +238,12 @@ resource_types:
       repository: cfcommunity/slack-notification-resource
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+
   - name: git
     type: git
     source:

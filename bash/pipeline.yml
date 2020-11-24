@@ -17,7 +17,9 @@ meta:
   target:   (( param "Please identify the name of the target Concourse CI" ))
   pipeline: (( grab meta.name ))
 
-  image:    starkandwayne/concourse
+  image:
+    name: starkandwayne/concourse
+    tag: latest
 
   binaries: '*'
   bin_dir: bin
@@ -65,13 +67,11 @@ jobs:
     plan:
       - do:
         - { name: inputs, get: git, trigger: true }
+        - { get: image }
         - task: test
+          image: image
           config:
             platform: linux
-            image_resource:
-              type: docker-image
-              source:
-                repository: (( grab meta.image ))
             inputs:
               - name: git
             run:
@@ -156,12 +156,10 @@ jobs:
         - in_parallel:
             - { get: version, passed: [rc], params: {bump: final} }
             - { get: git,     passed: [rc] }
+            - { get: image }
         - task: release
+          image: image
           config:
-            image_resource:
-              type: docker-image
-              source:
-                repository: (( grab meta.image ))
             platform: linux
             inputs:
               - name: version
@@ -208,6 +206,12 @@ resource_types:
       repository: cfcommunity/slack-notification-resource
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+
   - name: git
     type: git
     source:

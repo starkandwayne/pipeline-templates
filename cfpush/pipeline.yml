@@ -44,14 +44,11 @@ jobs:
     plan:
       - get: app
         trigger: true
+      - { get: image }
       - task: setup-app
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag: (( grab meta.image.tag ))
           inputs: [{name: app}]
           outputs: [{name: app-with-setup}]
           run:
@@ -69,14 +66,11 @@ jobs:
       - get: app
         trigger: false
         passed: [deploy-staging]
+      - { get: image }
       - task: setup-app
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag: (( grab meta.image.tag ))
           inputs: [{name: app}]
           outputs: [{name: app-with-setup}]
           run:
@@ -89,6 +83,12 @@ jobs:
           show_app_log: true
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+
   - name: app
     type: git
     source:

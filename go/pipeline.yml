@@ -77,14 +77,11 @@ jobs:
     plan:
       - do:
         - { get: git, trigger: true }
+        - { get: image }
         - task: test
+          image: image
           config:
             platform: linux
-            image_resource:
-              type: docker-image
-              source:
-                repository: (( grab meta.image.name ))
-                tag:        (( grab meta.image.tag ))
             inputs:
               - name: git
                 path: (( concat "gopath/src/" meta.go.module ))
@@ -107,18 +104,15 @@ jobs:
     plan:
       - do:
         - { get: git-pull-requests, trigger: true, version: every }
+        - { get: image }
         - put: git-pull-requests
           params:
             path: git-pull-requests
             status: pending
         - task: test
+          image: image
           config:
             platform: linux
-            image_resource:
-              type: docker-image
-              source:
-                repository: (( grab meta.image.name ))
-                tag:        (( grab meta.image.tag ))
             inputs:
               - name: git-pull-requests
                 path: (( concat "gopath/src/" meta.go.module ))
@@ -138,13 +132,9 @@ jobs:
               path: git-pull-requests
               status: failure
         - task: pr-success-message
+          image: image
           config:
             platform: linux
-            image_resource:
-              type: docker-image
-              source:
-                repository: (( grab meta.image.name ))
-                tag:        (( grab meta.image.tag ))
             inputs:
               - { name: git-pull-requests }
             outputs:
@@ -177,14 +167,11 @@ jobs:
         trigger: true
       - get: version
         trigger: true
+      - { get: image, passed: [testflight] }
       - task: release-notes
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: starkandwayne/concourse
-              tag: latest
           run:
             path: sh
             args:
@@ -282,13 +269,10 @@ jobs:
         - in_parallel:
             - { get: version, passed: [rc], params: {bump: final} }
             - { get: git,     passed: [rc] }
+            - { get: image,   passed: [rc] }
         - task: release
+          image: image
           config:
-            image_resource:
-              type: docker-image
-              source:
-                repository: (( grab meta.image.name ))
-                tag:        (( grab meta.image.tag ))
             platform: linux
             inputs:
               - name: version
@@ -351,6 +335,12 @@ resource_types:
       repository: jtarchie/pr
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+
   - name: git
     type: git
     source:

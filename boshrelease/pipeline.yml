@@ -92,14 +92,11 @@ jobs:
     plan:
     - do:
       - { get: git, trigger: true }
+      - { get: image }
       - task: testflight
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - { name: git }
           run:
@@ -132,18 +129,15 @@ jobs:
     plan:
     - do:
       - { get: git-pull-requests, trigger: true, version: every }
+      - { get: image }
       - put: git-pull-requests
         params:
           path: git-pull-requests
           status: pending
       - task: testflight
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - { name: git-pull-requests }
           run:
@@ -173,13 +167,9 @@ jobs:
             path: git-pull-requests
             status: failure
       - task: pr-success-message
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - { name: git-pull-requests }
           outputs:
@@ -212,14 +202,11 @@ jobs:
         trigger: true
       - get: version
         trigger: true
+      - { get: image, passed: [testflight] }
       - task: release-notes
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: starkandwayne/concourse
-              tag: latest
           run:
             path: sh
             args:
@@ -258,14 +245,11 @@ jobs:
     - do:
       - { get: git,     trigger: true,  passed: [pre] }
       - { get: version, trigger: false, params: {pre: rc} }
+      - { get: image,                   passed: [pre] }
       - task: release-notes
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
               - { name: git }
           run:
@@ -346,14 +330,11 @@ jobs:
     - do:
       - { get: version, passed: [rc], params: {bump: final} }
       - { get: git,     passed: [rc] }
+      - { get: image,   passed: [rc] }
       - task: release
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - name: version
             - name: git
@@ -414,14 +395,11 @@ jobs:
         trigger: true
       - get: (( concat meta.bosh.stemcell.os "-stemcell-" meta.bosh.stemcell.major ))
         params: {tarball: false}
+      - { get: image }
       - task: export-release
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - name: git
             - name: (( concat meta.bosh.stemcell.os "-stemcell-" meta.bosh.stemcell.major ))
@@ -456,14 +434,11 @@ jobs:
               params: {tarball: false}
             - get: compiled-release
               passed: [compile-release]
+            - { get: image, passed: [compile-release] }
       - task: use-compiled-releases
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - name: git
             - name: (( concat meta.bosh.stemcell.os "-stemcell-" meta.bosh.stemcell.major ))
@@ -499,6 +474,12 @@ resource_types:
       repository: jtarchie/pr
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+
   - name: git
     type: git
     source:

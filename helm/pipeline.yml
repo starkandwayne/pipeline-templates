@@ -17,9 +17,6 @@ meta:
   target:   (( param "Please identify the name of the target Concourse CI" ))
   url:      (( param "Please specify the full url of the target Concourse CI" ))
   pipeline: (( grab meta.name ))
-  image:
-    name: starkandwayne/concourse-kubernetes
-    tag: latest
 
   helm:
     chart_path: .
@@ -27,6 +24,10 @@ meta:
   git:
     email:  (( param "Please provide the git email for automated commits" ))
     name:   (( param "Please provide the git name for automated commits" ))
+
+  image:
+    name: starkandwayne/concourse-kubernetes
+    tag: latest
 
   aws:
     bucket:     (( concat meta.name "-pipeline" ))
@@ -98,19 +99,16 @@ jobs:
           - { get: version, passed: [rc], params: {bump: final} }
           - { get: git,     passed: [rc] }
           - { get: image-latest, passed: [latest-image], params: { save: true } }
+          - { get: image }
       - in_parallel:
         - put: image-latest # as 'vX.Y.Z'
           params:
             tag:        version/number
             load:       image-latest
         - task: package-chart
+          image: image
           config:
             platform: linux
-            image_resource:
-              type: docker-image
-              source:
-                repository: (( grab meta.image.name ))
-                tag:        (( grab meta.image.tag ))
             inputs:
               - name: version
               - name: git
@@ -176,14 +174,11 @@ jobs:
           # - { get: git,     trigger: true }
           - { get: git,     trigger: true, passed: [latest-image] }
           - { get: version, trigger: true, params: {pre: rc} }
+          - { get: image }
       - task: release-notes
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
               - { name: git }
           run:
@@ -248,6 +243,12 @@ resource_types:
       repository: cfcommunity/slack-notification-resource
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+
   - name: git
     type: git
     source:
