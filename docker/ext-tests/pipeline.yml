@@ -22,6 +22,9 @@ meta:
   image:
     name: starkandwayne/concourse
     tag: latest
+    registry:
+      username: (( param "Please set your Docker registry username for your pipeline image" ))
+      password: (( param "Please set your Docker registry password for your pipeline image" ))
 
   aws:
     bucket:     (( concat meta.name "-pipeline" ))
@@ -190,6 +193,8 @@ resources:
     source:
       repository: (( grab meta.image.name ))
       tag:        (( grab meta.image.tag ))
+      username:   (( grab meta.image.registry.username ))
+      password:   (( grab meta.image.registry.password ))
 
   - name: source
     type: git

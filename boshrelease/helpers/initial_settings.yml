@@ -12,6 +12,11 @@ meta:
     email:  ((git-commit-email))
     name:   ((git-commit-name))
 
+  image:
+    registry:
+      username: ((docker_registry_username))
+      password: ((docker-registry-password))
+
   bosh-lite:
     target:   ((bosh-lite-environment))
     cacert:   ((bosh-lite-ca-cert))

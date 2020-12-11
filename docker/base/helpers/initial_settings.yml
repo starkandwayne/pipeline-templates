@@ -10,6 +10,11 @@ meta:
     email:  ((git-commit-email))
     name:   ((git-commit-name))
 
+  image:
+    registry:
+      username: ((docker_registry_username))
+      password: ((docker-registry-password))
+
   dockerhub:
     username: ((dockerhub-username))
     email:    ((dockerhub-email))
