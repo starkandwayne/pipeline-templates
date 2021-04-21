@@ -50,7 +50,7 @@ meta:
     webhook:       (( param "Please specify your Slack Incoming Webhook Integration URL" ))
     success_moji:  ":airplane_departure:"
     fail_moji:     ":airplane_arriving:"
-    upset_moji:    ":sad_panda:"
+    upset_moji:    ":sadpanda:"
     channel:       (( param "Please specify the channel (#name) or user (@user) to send messages to" ))
     username:      concourse
     icon:          https://cl.ly/2F421Y300u07/concourse-logo-blue-transparent.png

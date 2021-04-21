@@ -44,7 +44,7 @@ meta:
     icon:          https://cl.ly/2F421Y300u07/concourse-logo-blue-transparent.png
     fail_moji:     ":airplane_arriving:"
     success_moji:  ":airplane_departure:"
-    upset_moji:    ":sad_panda:"
+    upset_moji:    ":sadpanda:"
     fail_url: '(( concat "<" meta.url "/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME| Concourse Failure! " meta.slack.upset_moji ">" ))'
 
   url: (( param "What is the URL for the Concourse instance this pipeline is located on?" ))
