@@ -26,10 +26,13 @@ cd code/my-buildpack
 
 The first argument to `setup` is the template you want to use. Currently available templates:
 
-* `docker/base`
-* `go`
+* `bash`
 * `boshrelease`
 * `buildpack`
+* `cfpush`
+* `docker/base`
+* `docker/ext-tests`
+* `go`
 * `helm`
 
 Don't let the name fool you!  `./setup` can also be used to update
