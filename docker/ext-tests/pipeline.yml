@@ -89,13 +89,11 @@ jobs:
     public: true
     serial: true
     plan:
-      - name: get-inputs
-        in_parallel:
+      - in_parallel:
           - { get: tests }
           - { get: edge,    passed: [build], trigger: true }
           - { get: source,  passed: [build] }
-      - name: run-tests
-        task: test-image
+      - task: test-image
         config:
           platform: linux
           image_resource:

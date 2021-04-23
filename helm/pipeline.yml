@@ -92,21 +92,18 @@ jobs:
     serial: true
     plan:
     - do:
-      - name: inputs
-        in_parallel:
+      - in_parallel:
           # - { get: version,  params: {bump: final} }
           # - { get: git }
           - { get: version, passed: [rc], params: {bump: final} }
           - { get: git,     passed: [rc] }
           - { get: image-latest, passed: [latest-image], params: { save: true } }
       - in_parallel:
-        - name: docker-push-tag
-          put: image-latest # as 'vX.Y.Z'
+        - put: image-latest # as 'vX.Y.Z'
           params:
             tag:        version/number
             load:       image-latest
-        - name: package-chart
-          task: package-chart
+        - task: package-chart
           config:
             platform: linux
             image_resource:
@@ -141,20 +138,17 @@ jobs:
               AWS_DEFAULT_REGION:    (( grab meta.aws.region_name ))
               HELM_S3_BUCKET_URI:    (( grab meta.aws.charts_uri ))
 
-      - name: upload-git
-        put: git
+      - put: git
         params:
           rebase: true
           repository: (( grab meta.name ))
-      - name: github-release
-        put: github
+      - put: github
         params:
           name:   gh/name
           tag:    gh/tag
           body:   gh/notes.md
           globs: [gh/artifacts/*]
-      - name: version-bump
-        put: version
+      - put: version
         params:
           bump: patch
       # - name: notify

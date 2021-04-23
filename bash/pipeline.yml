@@ -63,11 +63,9 @@ jobs:
     public: true
     serial: true
     plan:
-      - name: testing
-        do:
+      - do:
         - { name: inputs, get: git, trigger: true }
-        - name: run_tests
-          task: test
+        - task: test
           config:
             platform: linux
             image_resource:
@@ -155,12 +153,10 @@ jobs:
     serial: true
     plan:
       - do:
-        - name: inputs
-          in_parallel:
+        - in_parallel:
             - { get: version, passed: [rc], params: {bump: final} }
             - { get: git,     passed: [rc] }
-        - name: release
-          task: release
+        - task: release
           config:
             image_resource:
               type: docker-image
@@ -185,16 +181,13 @@ jobs:
               RELEASE_ROOT: gh
               REPO_OUT:     pushme
               BRANCH:       (( grab meta.github.branch ))
-        - name: version
-          put: version
+        - put: version
           params: { bump: final }
-        - name: git
-          put: git
+        - put: git
           params:
             rebase: true
             repository: pushme/git
-        - name: github
-          put: github
+        - put: github
           params:
             name:   gh/name
             tag:    gh/tag
