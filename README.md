@@ -13,7 +13,7 @@ Setup is straightforward:
 ```shell
 git clone https://github.com/starkandwayne/pipeline-templates
 cd pipeline-templates
-./setup boshrelease ~/bosh/my-new-boshrelease
+./setup <template> ~/bosh/my-new-boshrelease
 ```
 
 Alternatively, you can initialize the pipeline from inside the
@@ -21,15 +21,18 @@ target repository:
 
 ```shell
 cd code/my-buildpack
-~/code/pipeline-templates/setup buildpack
+~/code/pipeline-templates/setup <template>
 ```
 
 The first argument to `setup` is the template you want to use. Currently available templates:
 
-* `docker/base`
-* `go`
+* `bash`
 * `boshrelease`
 * `buildpack`
+* `cfpush`
+* `docker/base`
+* `docker/ext-tests`
+* `go`
 * `helm`
 
 Don't let the name fool you!  `./setup` can also be used to update

@@ -91,7 +91,8 @@ bosh create-release
 bosh upload-release --rebase
 
 header "Deploying to ${BOSH_ENVIRONMENT}..."
-release_name=$(bosh int config/final.yml --path /final_name)
+release_name=$(bosh int config/final.yml --path /final_name 2> /dev/null) \
+  || release_name=$(bosh int config/final.yml --path /name)
 
 header "Choosing cloud-config options"
 vm_type=$(bosh int <(bosh cloud-config) --path /vm_types/0/name)

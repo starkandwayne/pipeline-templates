@@ -18,11 +18,17 @@ meta:
   target:   (( param "Please identify the name of the target Concourse CI" ))
   url:      (( param "Please specify the full url of the target Concourse CI" ))
   pipeline: (( grab meta.name ))
-  image:    starkandwayne/concourse
 
   git:
     email:  (( param "Please provide the git email for automated commits" ))
     name:   (( param "Please provide the git name for automated commits" ))
+
+  image:
+    name: starkandwayne/concourse
+    tag: latest
+    registry:
+      username: (( param "Please set your Docker registry username for your pipeline image" ))
+      password: (( param "Please set your Docker registry password for your pipeline image" ))
 
   aws:
     bucket:     (( concat meta.name "-pipeline" ))
@@ -92,17 +98,15 @@ jobs:
     public: true
     serial: true
     plan:
-      - aggregate:
+      - in_parallel:
           - { get: version }
           - { get: edge, passed: [build], params: { save: true } }
           - { get: git,  passed: [build] }
+          - { get: image }
 
       - task: release
+        image: image
         config:
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image ))
           platform: linux
           inputs:
             - name: git
@@ -152,6 +156,14 @@ resource_types:
       repository: cfcommunity/slack-notification-resource
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+      username:   (( grab meta.image.registry.username ))
+      password:   (( grab meta.image.registry.password ))
+
   - name: git
     type: git
     source:
@@ -173,7 +185,7 @@ resources:
 
   - name: version
     type: semver
-    source :
+    source:
       driver:            s3
       bucket:            (( grab meta.aws.bucket ))
       region_name:       (( grab meta.aws.region_name ))

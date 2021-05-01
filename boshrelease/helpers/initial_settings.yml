@@ -4,13 +4,21 @@ meta:
   target:  ${fly_target}
   url:     ${fly_target_url}
 
-  test-errand: ~
+  test-errands: ~
 
   initial_version: 1.0.0
+
+  manifest:
+    directory: manifests
 
   git:
     email:  ((git-commit-email))
     name:   ((git-commit-name))
+
+  image:
+    registry:
+      username: ((docker_registry_username))
+      password: ((docker-registry-password))
 
   bosh-lite:
     target:   ((bosh-lite-environment))
@@ -35,6 +43,6 @@ meta:
     webhook:       ((slack-webhook))
     username:      ((slack-username))
     icon:          ((slack-icon-url))
-    channel:       (( concat meta.name "-boshrelease" ))
+    channel:       (( concat "#" meta.name "-boshrelease" ))
     blob_success:  '(( concat "$BUILD_PIPELINE_NAME: New version of $BUILD_JOB_NAME was detected, and updated in master. <" meta.url "/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME| Cut a new release?>" ))'
     blob_failure:  '(( concat "$BUILD_PIPELINE_NAME: :airplane_arriving: <" meta.url "/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME| Failed to update the blob for $BUILD_JOB_NAME>" ))'

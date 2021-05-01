@@ -17,9 +17,6 @@ meta:
   target:   (( param "Please identify the name of the target Concourse CI" ))
   url:      (( param "Please specify the full url of the target Concourse CI" ))
   pipeline: (( grab meta.name ))
-  image:
-    name: starkandwayne/concourse-kubernetes
-    tag: latest
 
   helm:
     chart_path: .
@@ -27,6 +24,13 @@ meta:
   git:
     email:  (( param "Please provide the git email for automated commits" ))
     name:   (( param "Please provide the git name for automated commits" ))
+
+  image:
+    name: starkandwayne/concourse-kubernetes
+    tag: latest
+    registry:
+      username: (( param "Please set your Docker registry username for your pipeline image" ))
+      password: (( param "Please set your Docker registry password for your pipeline image" ))
 
   aws:
     bucket:     (( concat meta.name "-pipeline" ))
@@ -92,28 +96,22 @@ jobs:
     serial: true
     plan:
     - do:
-      - name: inputs
-        aggregate:
+      - in_parallel:
           # - { get: version,  params: {bump: final} }
           # - { get: git }
           - { get: version, passed: [rc], params: {bump: final} }
           - { get: git,     passed: [rc] }
           - { get: image-latest, passed: [latest-image], params: { save: true } }
-      - aggregate:
-        - name: docker-push-tag
-          put: image-latest # as 'vX.Y.Z'
+          - { get: image }
+      - in_parallel:
+        - put: image-latest # as 'vX.Y.Z'
           params:
             tag:        version/number
             load:       image-latest
-        - name: package-chart
-          task: package-chart
+        - task: package-chart
+          image: image
           config:
             platform: linux
-            image_resource:
-              type: docker-image
-              source:
-                repository: (( grab meta.image.name ))
-                tag:        (( grab meta.image.tag ))
             inputs:
               - name: version
               - name: git
@@ -141,24 +139,21 @@ jobs:
               AWS_DEFAULT_REGION:    (( grab meta.aws.region_name ))
               HELM_S3_BUCKET_URI:    (( grab meta.aws.charts_uri ))
 
-      - name: upload-git
-        put: git
+      - put: git
         params:
           rebase: true
           repository: (( grab meta.name ))
-      - name: github-release
-        put: github
+      - put: github
         params:
           name:   gh/name
           tag:    gh/tag
           body:   gh/notes.md
           globs: [gh/artifacts/*]
-      - name: version-bump
-        put: version
+      - put: version
         params:
           bump: patch
       # - name: notify
-      #   aggregate:
+      #   in_parallel:
       #   - put: notify
       #     params:
       #       channel:  (( grab meta.slack.channel ))
@@ -178,18 +173,15 @@ jobs:
     serial: true
     plan:
     - do:
-      - aggregate:
+      - in_parallel:
           # - { get: git,     trigger: true }
           - { get: git,     trigger: true, passed: [latest-image] }
           - { get: version, trigger: true, params: {pre: rc} }
+          - { get: image }
       - task: release-notes
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
               - { name: git }
           run:
@@ -254,6 +246,14 @@ resource_types:
       repository: cfcommunity/slack-notification-resource
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+      username:   (( grab meta.image.registry.username ))
+      password:   (( grab meta.image.registry.password ))
+
   - name: git
     type: git
     source:
@@ -269,7 +269,7 @@ resources:
 
   - name: version
     type: semver
-    source :
+    source:
       driver:            s3
       bucket:            (( grab meta.aws.bucket ))
       region_name:       (( grab meta.aws.region_name ))

@@ -24,6 +24,9 @@ meta:
   image:
     name: starkandwayne/concourse-go
     tag: 1.12
+    registry:
+      username: (( param "Please set your Docker registry username for your pipeline image" ))
+      password: (( param "Please set your Docker registry password for your pipeline image" ))
 
   cf:
     api_url:         (( param "Please provide api_url" ))
@@ -71,16 +74,13 @@ jobs:
     public: true
     plan:
     - do:
-      - aggregate:
+      - in_parallel:
         - { get: git, trigger: true }
+        - { get: image }
       - task: unit-tests
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - { name: git }
           run:
@@ -100,16 +100,13 @@ jobs:
     serial: true
     plan:
     - do:
-      - aggregate:
+      - in_parallel:
         - { get: git, trigger: true }
+        - { get: image }
       - task: integration-tests
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - { name: git }
           run:
@@ -133,7 +130,7 @@ jobs:
     public: true
     plan:
     - do:
-      - aggregate:
+      - in_parallel:
           - { get: git,     trigger: true,  passed: [unit-tests, integration-tests] }
           - { get: version, trigger: true, params: {pre: rc} }
       - put: version
@@ -179,19 +176,14 @@ jobs:
     serial: true
     plan:
     - do:
-      - name: inputs
-        aggregate:
+      - in_parallel:
           - { get: version, passed: [rc], params: {bump: final} }
           - { get: git,     passed: [rc] }
-      - name: release
-        task: release
+          - { get: image }
+      - task: release
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - name: version
             - name: git
@@ -214,24 +206,20 @@ jobs:
             GIT_EMAIL:      (( grab meta.git.email ))
             GIT_NAME:       (( grab meta.git.name ))
 
-      - name: upload-git
-        put: git
+      - put: git
         params:
           rebase: true
           repository: pushme
-      - name: github-release
-        put: github
+      - put: github
         params:
           name:   gh/name
           tag:    gh/tag
           body:   gh/notes.md
           globs: [gh/artifacts/*]
-      - name: version-bump
-        put: version
+      - put: version
         params:
           bump: patch
-      - name: notify
-        aggregate:
+      - in_parallel:
         - put: notify
           params:
             channel:  (( grab meta.slack.channel ))
@@ -253,6 +241,14 @@ resource_types:
       repository: cfcommunity/slack-notification-resource
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+      username:   (( grab meta.image.registry.username ))
+      password:   (( grab meta.image.registry.password ))
+
   - name: git
     type: git
     source:
@@ -267,7 +263,7 @@ resources:
 
   - name: version
     type: semver
-    source :
+    source:
       driver:            s3
       bucket:            (( grab meta.aws.bucket ))
       region_name:       (( grab meta.aws.region_name ))

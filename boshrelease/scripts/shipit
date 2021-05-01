@@ -51,7 +51,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 git clone ${REPO_ROOT} ${REPO_OUT}
 
 pushd ${REPO_OUT}
-RELEASE_NAME=$(bosh int config/final.yml --path /final_name)
+RELEASE_NAME=$(bosh int config/final.yml --path /final_name 2> /dev/null) \
+  || RELEASE_NAME=$(bosh int config/final.yml --path /name)
 
 cat > config/private.yml <<YAML
 ---
@@ -84,6 +85,7 @@ mv ${REPO_OUT}/ci/release_notes.md           ${RELEASE_ROOT}/notes.md
 cat >> ${RELEASE_ROOT}/notes.md <<EOF
 
 ### Deployment
+
 \`\`\`yaml
 releases:
 - name:    $RELEASE_NAME
