@@ -9,6 +9,9 @@ meta:
   image:
     name: starkandwayne/concourse
     tag: latest
+    registry:
+      username: (( param "Please set your Docker registry username for your pipeline image" ))
+      password: (( param "Please set your Docker registry password for your pipeline image" ))
 
   github:
     uri:          (( concat "git@github.com:" meta.github.owner "/" meta.github.repo ))
@@ -44,15 +47,11 @@ jobs:
     plan:
       - get: app
         trigger: true
+      - { get: image }
       - task: setup-app
-        name: setup-app
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag: (( grab meta.image.tag ))
           inputs: [{name: app}]
           outputs: [{name: app-with-setup}]
           run:
@@ -70,15 +69,11 @@ jobs:
       - get: app
         trigger: false
         passed: [deploy-staging]
+      - { get: image }
       - task: setup-app
-        name: setup-app
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag: (( grab meta.image.tag ))
           inputs: [{name: app}]
           outputs: [{name: app-with-setup}]
           run:
@@ -91,6 +86,14 @@ jobs:
           show_app_log: true
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+      username:   (( grab meta.image.registry.username ))
+      password:   (( grab meta.image.registry.password ))
+
   - name: app
     type: git
     source:

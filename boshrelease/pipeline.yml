@@ -30,6 +30,9 @@ meta:
   image:
     name: starkandwayne/concourse
     tag: latest
+    registry:
+      username: (( param "Please set your Docker registry username for your pipeline image" ))
+      password: (( param "Please set your Docker registry password for your pipeline image" ))
 
   aws:
     bucket:     (( grab meta.pipeline ))
@@ -90,18 +93,13 @@ jobs:
     public: true
     serial: true
     plan:
-    - name: main
-      do:
+    - do:
       - { get: git, trigger: true }
-      - name: testflight
-        task: testflight
+      - { get: image }
+      - task: testflight
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - { name: git }
           run:
@@ -132,23 +130,17 @@ jobs:
     public: true
     serial: true
     plan:
-    - name: main
-      do:
+    - do:
       - { get: git-pull-requests, trigger: true, version: every }
-      - name: pending-status
-        put: git-pull-requests
+      - { get: image }
+      - put: git-pull-requests
         params:
           path: git-pull-requests
           status: pending
-      - name: testflight
-        task: testflight
+      - task: testflight
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - { name: git-pull-requests }
           run:
@@ -177,15 +169,10 @@ jobs:
           params:
             path: git-pull-requests
             status: failure
-      - name: pr-success-message
-        task: pr-success-message
+      - task: pr-success-message
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - { name: git-pull-requests }
           outputs:
@@ -218,14 +205,11 @@ jobs:
         trigger: true
       - get: version
         trigger: true
+      - { get: image, passed: [testflight] }
       - task: release-notes
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: starkandwayne/concourse
-              tag: latest
           run:
             path: sh
             args:
@@ -264,14 +248,11 @@ jobs:
     - do:
       - { get: git,     trigger: true,  passed: [pre] }
       - { get: version, trigger: false, params: {pre: rc} }
+      - { get: image,                   passed: [pre] }
       - task: release-notes
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
               - { name: git }
           run:
@@ -352,15 +333,11 @@ jobs:
     - do:
       - { get: version, passed: [rc], params: {bump: final} }
       - { get: git,     passed: [rc] }
-      - name: release
-        task: release
+      - { get: image,   passed: [rc] }
+      - task: release
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - name: version
             - name: git
@@ -384,28 +361,23 @@ jobs:
             AWS_ACCESS_KEY:       (( grab meta.aws.access_key ))
             AWS_SECRET_KEY:       (( grab meta.aws.secret_key ))
 
-      - name: upload-git
-        put: git
+      - put: git
         params:
           rebase: true
           repository: pushme
-      - name: tarball
-        put: s3-tarball
+      - put: s3-tarball
         params:
           file:  (( concat "gh/artifacts/" meta.name "-*.tgz" ))
-      - name: github-release
-        put: github
+      - put: github
         params:
           name:   gh/name
           tag:    gh/tag
           body:   gh/notes.md
           globs: [gh/artifacts/*]
-      - name: version-bump
-        put: version
+      - put: version
         params:
           bump: patch
-      - name: notify
-        put: notify
+      - put: notify
         params:
           channel:  (( grab meta.slack.channel ))
           username: (( grab meta.slack.username ))
@@ -426,14 +398,11 @@ jobs:
         trigger: true
       - get: (( concat meta.bosh.stemcell.os "-stemcell-" meta.bosh.stemcell.major ))
         params: {tarball: false}
+      - { get: image }
       - task: export-release
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - name: git
             - name: (( concat meta.bosh.stemcell.os "-stemcell-" meta.bosh.stemcell.major ))
@@ -457,8 +426,7 @@ jobs:
 
   - name: use-compiled-releases
     plan:
-      - name: resources
-        in_parallel:
+      - in_parallel:
           steps:
             - get: git
             - get: github
@@ -469,14 +437,11 @@ jobs:
               params: {tarball: false}
             - get: compiled-release
               passed: [compile-release]
+            - { get: image, passed: [compile-release] }
       - task: use-compiled-releases
+        image: image
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image.name ))
-              tag:        (( grab meta.image.tag ))
           inputs:
             - name: git
             - name: (( concat meta.bosh.stemcell.os "-stemcell-" meta.bosh.stemcell.major ))
@@ -495,8 +460,7 @@ jobs:
             GIT_NAME:      (( grab meta.git.name ))
             BRANCH:        (( grab meta.github.branch ))
             STEMCELL_OS:   (( grab meta.bosh.stemcell.os ))
-      - name: upload-git
-        put: git
+      - put: git
         params:
           rebase: true
           repository: pushme
@@ -513,6 +477,14 @@ resource_types:
       repository: jtarchie/pr
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+      username:   (( grab meta.image.registry.username ))
+      password:   (( grab meta.image.registry.password ))
+
   - name: git
     type: git
     source:
@@ -531,7 +503,7 @@ resources:
 
   - name: version
     type: semver
-    source :
+    source:
       driver:            s3
       bucket:            (( grab meta.aws.bucket ))
       region_name:       (( grab meta.aws.region_name ))

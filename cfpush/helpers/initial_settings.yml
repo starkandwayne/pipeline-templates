@@ -4,6 +4,11 @@ meta:
   target:  ${fly_target}
   url:     ${fly_target_url}
 
+  image:
+    registry:
+      username: ((docker_registry_username))
+      password: ((docker-registry-password))
+
   github:
     owner:  $(jq .OrganizationFields.Name -r ~/.cf/config.json)
     repo:   $(basename $PWD)

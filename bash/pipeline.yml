@@ -17,7 +17,12 @@ meta:
   target:   (( param "Please identify the name of the target Concourse CI" ))
   pipeline: (( grab meta.name ))
 
-  image:    starkandwayne/concourse
+  image:
+    name: starkandwayne/concourse
+    tag: latest
+    registry:
+      username: (( param "Please set your Docker registry username for your pipeline image" ))
+      password: (( param "Please set your Docker registry password for your pipeline image" ))
 
   binaries: '*'
   bin_dir: bin
@@ -38,7 +43,6 @@ meta:
 
   slack:
     webhook:       (( param "Please specify your Slack Incoming Webhook Integration URL" ))
-    notification: '(( concat ":sadpanda: " meta.pipeline " build failed!<br>URL-GOES-HERE" ))'
     channel:       (( param "Please specify the channel (#name) or user (@user) to send messages to" ))
     username:      concourse
     icon:          https://cl.ly/2F421Y300u07/concourse-logo-blue-transparent.png
@@ -64,17 +68,13 @@ jobs:
     public: true
     serial: true
     plan:
-      - name: testing
-        do:
-        - { name: inputs, get: git, trigger: true }
-        - name: run_tests
-          task: test
+      - do:
+        - { get: git, trigger: true }
+        - { get: image }
+        - task: test
+          image: image
           config:
             platform: linux
-            image_resource:
-              type: docker-image
-              source:
-                repository: (( grab meta.image ))
             inputs:
               - name: git
             run:
@@ -96,7 +96,7 @@ jobs:
     public: true
     plan:
       - do:
-        - aggregate:
+        - in_parallel:
             - { get: git,     trigger: true,  passed: [test] }
             - { get: version, trigger: true, params: {pre: rc} }
         - put: version
@@ -156,17 +156,13 @@ jobs:
     serial: true
     plan:
       - do:
-        - name: inputs
-          aggregate:
+        - in_parallel:
             - { get: version, passed: [rc], params: {bump: final} }
             - { get: git,     passed: [rc] }
-        - name: release
-          task: release
+            - { get: image }
+        - task: release
+          image: image
           config:
-            image_resource:
-              type: docker-image
-              source:
-                repository: (( grab meta.image ))
             platform: linux
             inputs:
               - name: version
@@ -186,16 +182,13 @@ jobs:
               RELEASE_ROOT: gh
               REPO_OUT:     pushme
               BRANCH:       (( grab meta.github.branch ))
-        - name: version
-          put: version
+        - put: version
           params: { bump: final }
-        - name: git
-          put: git
+        - put: git
           params:
             rebase: true
             repository: pushme/git
-        - name: github
-          put: github
+        - put: github
           params:
             name:   gh/name
             tag:    gh/tag
@@ -216,6 +209,14 @@ resource_types:
       repository: cfcommunity/slack-notification-resource
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+      username:   (( grab meta.image.registry.username ))
+      password:   (( grab meta.image.registry.password ))
+
   - name: git
     type: git
     source:
@@ -225,7 +226,7 @@ resources:
 
   - name: version
     type: semver
-    source :
+    source:
       driver:            s3
       bucket:            (( grab meta.aws.bucket ))
       region_name:       (( grab meta.aws.region_name ))

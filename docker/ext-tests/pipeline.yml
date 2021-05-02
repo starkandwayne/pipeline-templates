@@ -19,7 +19,12 @@ meta:
   url:      (( param "Please specify the full url of the target Concourse CI" ))
   pipeline: (( grab meta.name ))
 
-  image:    starkandwayne/concourse
+  image:
+    name: starkandwayne/concourse
+    tag: latest
+    registry:
+      username: (( param "Please set your Docker registry username for your pipeline image" ))
+      password: (( param "Please set your Docker registry password for your pipeline image" ))
 
   aws:
     bucket:     (( concat meta.name "-pipeline" ))
@@ -89,20 +94,14 @@ jobs:
     public: true
     serial: true
     plan:
-      - name: get-inputs
-        aggregate:
+      - in_parallel:
           - { get: tests }
           - { get: edge,    passed: [build], trigger: true }
           - { get: source,  passed: [build] }
-      - name: run-tests
-        task: test-image
+      - task: test-image
+        image: edge
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              .: (( inject meta.dockerhub ))
-              tag:  edge
           inputs:
             - name: source
             - name: tests
@@ -133,17 +132,15 @@ jobs:
     public: true
     serial: true
     plan:
-      - aggregate:
+      - in_parallel:
           - { get: version }
           - { get: edge,    passed: [test], params: { save: true } }
           - { get: source,  passed: [test] }
+          - { get: image }
 
       - task: release
+        image: image
         config:
-          image_resource:
-            type: docker-image
-            source:
-              repository: (( grab meta.image ))
           platform: linux
           inputs:
             - name: source
@@ -191,6 +188,14 @@ resource_types:
       repository: cfcommunity/slack-notification-resource
 
 resources:
+  - name: image
+    type: docker-image
+    source:
+      repository: (( grab meta.image.name ))
+      tag:        (( grab meta.image.tag ))
+      username:   (( grab meta.image.registry.username ))
+      password:   (( grab meta.image.registry.password ))
+
   - name: source
     type: git
     source:
@@ -219,7 +224,7 @@ resources:
 
   - name: version
     type: semver
-    source :
+    source:
       driver:            s3
       bucket:            (( grab meta.aws.bucket ))
       key:               version
