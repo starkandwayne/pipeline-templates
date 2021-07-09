@@ -48,8 +48,8 @@ initial_settings_yml() {
   fi
 }
 
-[ -n ${template} ] || usage "ERROR: Missing pipeline template type" 1
-[ -d ${target} ]   || usage "ERROR: ${target} path not found"       1
+[ -n "${template}" ] || usage "ERROR: Missing pipeline template type" 1
+[ -d "${target}" ]   || usage "ERROR: ${target} path not found"       1
 
 pattern="^($(echo "$pipeline_types" | tr "\n" "|" | sed -e "s/\|*$//"))$"
 [[ "${template}"=~$pattern ]] || usage "ERROR: ${template} is not a valid pipeline template" 1
