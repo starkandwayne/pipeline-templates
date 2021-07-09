@@ -71,7 +71,7 @@ jobs:
     public: true
     plan:
     - do:
-      - aggregate:
+      - in_parallel:
         - { get: git, trigger: true }
       - task: unit-tests
         config:
@@ -100,7 +100,7 @@ jobs:
     serial: true
     plan:
     - do:
-      - aggregate:
+      - in_parallel:
         - { get: git, trigger: true }
       - task: integration-tests
         config:
@@ -133,7 +133,7 @@ jobs:
     public: true
     plan:
     - do:
-      - aggregate:
+      - in_parallel:
           - { get: git,     trigger: true,  passed: [unit-tests, integration-tests] }
           - { get: version, trigger: true, params: {pre: rc} }
       - put: version
@@ -179,12 +179,10 @@ jobs:
     serial: true
     plan:
     - do:
-      - name: inputs
-        aggregate:
+      - in_parallel:
           - { get: version, passed: [rc], params: {bump: final} }
           - { get: git,     passed: [rc] }
-      - name: release
-        task: release
+      - task: release
         config:
           platform: linux
           image_resource:
@@ -214,24 +212,20 @@ jobs:
             GIT_EMAIL:      (( grab meta.git.email ))
             GIT_NAME:       (( grab meta.git.name ))
 
-      - name: upload-git
-        put: git
+      - put: git
         params:
           rebase: true
           repository: pushme
-      - name: github-release
-        put: github
+      - put: github
         params:
           name:   gh/name
           tag:    gh/tag
           body:   gh/notes.md
           globs: [gh/artifacts/*]
-      - name: version-bump
-        put: version
+      - put: version
         params:
           bump: patch
-      - name: notify
-        aggregate:
+      - in_parallel:
         - put: notify
           params:
             channel:  (( grab meta.slack.channel ))
@@ -267,7 +261,7 @@ resources:
 
   - name: version
     type: semver
-    source :
+    source:
       driver:            s3
       bucket:            (( grab meta.aws.bucket ))
       region_name:       (( grab meta.aws.region_name ))

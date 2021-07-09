@@ -45,7 +45,6 @@ jobs:
       - get: app
         trigger: true
       - task: setup-app
-        name: setup-app
         config:
           platform: linux
           image_resource:
@@ -71,7 +70,6 @@ jobs:
         trigger: false
         passed: [deploy-staging]
       - task: setup-app
-        name: setup-app
         config:
           platform: linux
           image_resource:

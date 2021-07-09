@@ -50,7 +50,6 @@ meta:
     webhook:       (( param "Please specify your Slack Incoming Webhook Integration URL" ))
     username:      concourse
     icon:          https://cl.ly/2F421Y300u07/concourse-logo-blue-transparent.png
-    notification: '(( concat ":sadpanda: " meta.pipeline " build failed!<br>URL-GOES-HERE" ))'
     channel:       (( param "Please specify the channel (#name) or user (@user) to send messages to" ))
     fail_moji:     ":airplane_arriving:"
     success_moji:  ":airplane_departure:"
@@ -220,7 +219,7 @@ jobs:
     public: true
     plan:
       - do:
-        - aggregate:
+        - in_parallel:
             - { get: git,     trigger: true,  passed: [pre] }
             - { get: version, trigger: false, params: {pre: rc} }
         - put: version
@@ -280,12 +279,10 @@ jobs:
     serial: true
     plan:
       - do:
-        - name: inputs
-          aggregate:
+        - in_parallel:
             - { get: version, passed: [rc], params: {bump: final} }
             - { get: git,     passed: [rc] }
-        - name: release
-          task: release
+        - task: release
           config:
             image_resource:
               type: docker-image
@@ -315,23 +312,19 @@ jobs:
               STATIC_BINARY:  (( grab meta.go.force_static_binary ))
               GIT_EMAIL:      (( grab meta.git.email ))
               GIT_NAME:       (( grab meta.git.name ))
-        - name: version
-          put: version
+        - put: version
           params: { bump: final }
-        - name: git
-          put: git
+        - put: git
           params:
             rebase: true
             repository: pushme/git
-        - name: github
-          put: github
+        - put: github
           params:
             name:   gh/name
             tag:    gh/tag
             body:   gh/notes.md
             globs: [gh/artifacts/*]
-        - name: notify
-          aggregate:
+        - in_parallel:
           - put: notify
             params:
               channel:  (( grab meta.slack.channel ))
@@ -367,7 +360,7 @@ resources:
 
   - name: version
     type: semver
-    source :
+    source:
       driver:            s3
       bucket:            (( grab meta.aws.bucket ))
       region_name:       (( grab meta.aws.region_name ))

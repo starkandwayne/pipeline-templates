@@ -92,7 +92,7 @@ jobs:
     public: true
     serial: true
     plan:
-      - aggregate:
+      - in_parallel:
           - { get: version }
           - { get: edge, passed: [build], params: { save: true } }
           - { get: git,  passed: [build] }
@@ -173,7 +173,7 @@ resources:
 
   - name: version
     type: semver
-    source :
+    source:
       driver:            s3
       bucket:            (( grab meta.aws.bucket ))
       region_name:       (( grab meta.aws.region_name ))

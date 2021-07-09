@@ -89,13 +89,11 @@ jobs:
     public: true
     serial: true
     plan:
-      - name: get-inputs
-        aggregate:
+      - in_parallel:
           - { get: tests }
           - { get: edge,    passed: [build], trigger: true }
           - { get: source,  passed: [build] }
-      - name: run-tests
-        task: test-image
+      - task: test-image
         config:
           platform: linux
           image_resource:
@@ -133,7 +131,7 @@ jobs:
     public: true
     serial: true
     plan:
-      - aggregate:
+      - in_parallel:
           - { get: version }
           - { get: edge,    passed: [test], params: { save: true } }
           - { get: source,  passed: [test] }
@@ -219,7 +217,7 @@ resources:
 
   - name: version
     type: semver
-    source :
+    source:
       driver:            s3
       bucket:            (( grab meta.aws.bucket ))
       key:               version
